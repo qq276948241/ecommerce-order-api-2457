@@ -63,8 +63,9 @@ func (s *cartService) GetCart(userID uint) (*model.CartListResponse, error) {
 	}
 
 	var total float64
-	for _, item := range items {
-		total += float64(item.Quantity) * item.Product.Price
+	for i := range items {
+		markLowStock(&items[i].Product)
+		total += float64(items[i].Quantity) * items[i].Product.Price
 	}
 
 	return &model.CartListResponse{

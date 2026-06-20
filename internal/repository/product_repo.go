@@ -55,6 +55,9 @@ func (r *productRepository) List(query *model.ProductListQuery) ([]model.Product
 	if query.Category != "" {
 		db = db.Where("category = ?", query.Category)
 	}
+	if query.LowStock != nil && *query.LowStock {
+		db = db.Where("stock <= stock_warning_threshold")
+	}
 
 	db.Count(&total)
 

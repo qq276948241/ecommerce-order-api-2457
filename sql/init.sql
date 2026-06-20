@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     price DECIMAL(10,2) NOT NULL,
     stock INT NOT NULL DEFAULT 0,
+    stock_warning_threshold INT NOT NULL DEFAULT 10 COMMENT '库存预警阈值，库存<=此值时触发低库存提醒',
     image_url VARCHAR(500) DEFAULT NULL,
     category VARCHAR(100) DEFAULT NULL,
     status TINYINT NOT NULL DEFAULT 1 COMMENT '1-上架 0-下架',
@@ -103,9 +104,10 @@ CREATE TABLE IF NOT EXISTS refunds (
     INDEX idx_refund_no (refund_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT INTO products (name, description, price, stock, image_url, category, status) VALUES
-('iPhone 15 Pro', 'Apple iPhone 15 Pro 256GB 钛金属', 7999.00, 100, 'https://example.com/iphone15.jpg', '手机数码', 1),
-('MacBook Pro 14', 'Apple MacBook Pro 14英寸 M3芯片', 14999.00, 50, 'https://example.com/macbook.jpg', '电脑办公', 1),
-('AirPods Pro', 'Apple AirPods Pro 第二代', 1899.00, 200, 'https://example.com/airpods.jpg', '手机数码', 1),
-('iPad Air', 'Apple iPad Air 11英寸 M2芯片', 4799.00, 80, 'https://example.com/ipad.jpg', '平板电脑', 1),
-('Apple Watch Series 9', 'Apple Watch Series 9 GPS 45mm', 2999.00, 120, 'https://example.com/watch.jpg', '智能穿戴', 1);
+INSERT INTO products (name, description, price, stock, stock_warning_threshold, image_url, category, status) VALUES
+('iPhone 15 Pro', 'Apple iPhone 15 Pro 256GB 钛金属', 7999.00, 100, 20, 'https://example.com/iphone15.jpg', '手机数码', 1),
+('MacBook Pro 14', 'Apple MacBook Pro 14英寸 M3芯片', 14999.00, 50, 10, 'https://example.com/macbook.jpg', '电脑办公', 1),
+('AirPods Pro', 'Apple AirPods Pro 第二代', 1899.00, 200, 30, 'https://example.com/airpods.jpg', '手机数码', 1),
+('iPad Air', 'Apple iPad Air 11英寸 M2芯片', 4799.00, 80, 15, 'https://example.com/ipad.jpg', '平板电脑', 1),
+('Apple Watch Series 9', 'Apple Watch Series 9 GPS 45mm', 2999.00, 120, 10, 'https://example.com/watch.jpg', '智能穿戴', 1),
+('iPhone 15 Pro Max 低库存测试', '测试低库存预警，库存仅5件', 9999.00, 5, 10, 'https://example.com/iphone15max.jpg', '手机数码', 1);
