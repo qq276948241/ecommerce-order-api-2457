@@ -2,6 +2,7 @@ package repository
 
 import (
 	"ecommerce-backend/internal/model"
+	"ecommerce-backend/pkg/dbutil"
 
 	"gorm.io/gorm"
 )
@@ -23,49 +24,39 @@ func NewProductRepository(db *gorm.DB) ProductRepository {
 }
 
 func (r *productRepository) Create(product *model.Product) error {
-	return r.db.Create(product).Error
+	return dbutil.Create(r.db, product)
 }
 
 func (r *productRepository) GetByID(id uint) (*model.Product, error) {
-	var product model.Product
-	err := r.db.First(&product, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &product, nil
+	return dbutil.GetByID[model.Product](r.db, id)
 }
 
 func (r *productRepository) Update(product *model.Product) error {
-	return r.db.Save(product).Error
+	return dbutil.Update(r.db, product)
 }
 
 func (r *productRepository) Delete(id uint) error {
-	return r.db.Delete(&model.Product{}, id).Error
+	return dbutil.DeleteByID(r.db, &model.Product{}, id)
 }
 
 func (r *productRepository) List(query *model.ProductListQuery) ([]model.Product, int64, error) {
-	var products []model.Product
-	var total int64
-
-	db := r.db.Model(&model.Product{}).Where("status = ?", 1)
+	var conds []dbutil.Condition
+	conds = append(conds, dbutil.Eq("status", 1))
 
 	if query.Keyword != "" {
-		db = db.Where("name LIKE ?", "%"+query.Keyword+"%")
+		conds = append(conds, dbutil.Like("name", query.Keyword))
 	}
 	if query.Category != "" {
-		db = db.Where("category = ?", query.Category)
+		conds = append(conds, dbutil.Eq("category", query.Category))
 	}
 	if query.LowStock != nil && *query.LowStock {
-		db = db.Where("stock <= stock_warning_threshold")
+		conds = append(conds, dbutil.RawExpr("stock <= stock_warning_threshold", nil))
 	}
 
-	db.Count(&total)
-
-	offset := (query.Page - 1) * query.PageSize
-	err := db.Offset(offset).Limit(query.PageSize).Order("id DESC").Find(&products).Error
+	pq := dbutil.PageQuery{Page: query.Page, PageSize: query.PageSize}
+	result, err := dbutil.Paginate[model.Product](r.db, pq, conds, []string{"id DESC"})
 	if err != nil {
 		return nil, 0, err
 	}
-
-	return products, total, nil
+	return result.List, result.Total, nil
 }

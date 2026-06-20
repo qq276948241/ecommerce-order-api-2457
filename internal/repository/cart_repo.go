@@ -2,6 +2,7 @@ package repository
 
 import (
 	"ecommerce-backend/internal/model"
+	"ecommerce-backend/pkg/dbutil"
 
 	"gorm.io/gorm"
 )
@@ -25,41 +26,40 @@ func NewCartRepository(db *gorm.DB) CartRepository {
 }
 
 func (r *cartRepository) AddItem(item *model.CartItem) error {
-	return r.db.Create(item).Error
+	return dbutil.Create(r.db, item)
 }
 
 func (r *cartRepository) GetByUserID(userID uint) ([]model.CartItem, error) {
-	var items []model.CartItem
-	err := r.db.Where("user_id = ?", userID).Preload("Product").Order("id DESC").Find(&items).Error
-	return items, err
+	return dbutil.List[model.CartItem](r.db,
+		[]dbutil.Condition{dbutil.Eq("user_id", userID)},
+		[]string{"id DESC"},
+		"Product")
 }
 
 func (r *cartRepository) GetByID(id uint) (*model.CartItem, error) {
-	var item model.CartItem
-	err := r.db.Preload("Product").First(&item, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &item, nil
+	return dbutil.GetByID[model.CartItem](r.db, id, "Product")
 }
 
 func (r *cartRepository) GetByUserAndProduct(userID, productID uint) (*model.CartItem, error) {
-	var item model.CartItem
-	err := r.db.Where("user_id = ? AND product_id = ?", userID, productID).First(&item).Error
-	if err != nil {
-		return nil, err
-	}
-	return &item, nil
+	return dbutil.GetOne[model.CartItem](r.db,
+		[]dbutil.Condition{
+			dbutil.Eq("user_id", userID),
+			dbutil.Eq("product_id", productID),
+		})
 }
 
 func (r *cartRepository) Update(item *model.CartItem) error {
-	return r.db.Save(item).Error
+	return dbutil.Update(r.db, item)
 }
 
 func (r *cartRepository) Delete(id uint) error {
-	return r.db.Delete(&model.CartItem{}, id).Error
+	return dbutil.DeleteByID(r.db, &model.CartItem{}, id)
 }
 
 func (r *cartRepository) DeleteByIDs(ids []uint, userID uint) error {
-	return r.db.Where("id IN ? AND user_id = ?", ids, userID).Delete(&model.CartItem{}).Error
+	return dbutil.DeleteByConditions(r.db, &model.CartItem{},
+		[]dbutil.Condition{
+			dbutil.In("id", ids),
+			dbutil.Eq("user_id", userID),
+		})
 }

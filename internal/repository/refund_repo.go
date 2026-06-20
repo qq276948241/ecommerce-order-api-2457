@@ -2,6 +2,7 @@ package repository
 
 import (
 	"ecommerce-backend/internal/model"
+	"ecommerce-backend/pkg/dbutil"
 
 	"gorm.io/gorm"
 )
@@ -22,39 +23,29 @@ func NewRefundRepository(db *gorm.DB) RefundRepository {
 }
 
 func (r *refundRepository) Create(refund *model.Refund) error {
-	return r.db.Create(refund).Error
+	return dbutil.Create(r.db, refund)
 }
 
 func (r *refundRepository) GetByID(id uint) (*model.Refund, error) {
-	var refund model.Refund
-	err := r.db.First(&refund, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &refund, nil
+	return dbutil.GetByID[model.Refund](r.db, id)
 }
 
 func (r *refundRepository) GetByUserID(userID uint, query *model.RefundListQuery) ([]model.Refund, int64, error) {
-	var refunds []model.Refund
-	var total int64
-
-	db := r.db.Model(&model.Refund{}).Where("user_id = ?", userID)
+	var conds []dbutil.Condition
+	conds = append(conds, dbutil.Eq("user_id", userID))
 
 	if query.Status != nil {
-		db = db.Where("status = ?", *query.Status)
+		conds = append(conds, dbutil.Eq("status", *query.Status))
 	}
 
-	db.Count(&total)
-
-	offset := (query.Page - 1) * query.PageSize
-	err := db.Offset(offset).Limit(query.PageSize).Order("id DESC").Find(&refunds).Error
+	pq := dbutil.PageQuery{Page: query.Page, PageSize: query.PageSize}
+	result, err := dbutil.Paginate[model.Refund](r.db, pq, conds, []string{"id DESC"})
 	if err != nil {
 		return nil, 0, err
 	}
-
-	return refunds, total, nil
+	return result.List, result.Total, nil
 }
 
 func (r *refundRepository) Update(refund *model.Refund) error {
-	return r.db.Save(refund).Error
+	return dbutil.Update(r.db, refund)
 }

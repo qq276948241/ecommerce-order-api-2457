@@ -1,12 +1,12 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/repository"
+	bizerr "ecommerce-backend/pkg/errors"
 )
 
 type RefundService interface {
@@ -30,16 +30,16 @@ func NewRefundService(refundRepo repository.RefundRepository, orderRepo reposito
 func (s *refundService) CreateRefund(userID uint, req *model.CreateRefundRequest) (*model.Refund, error) {
 	order, err := s.orderRepo.GetByID(req.OrderID)
 	if err != nil {
-		return nil, errors.New("订单不存在")
+		return nil, bizerr.NotFound("订单不存在")
 	}
 	if order.UserID != userID {
-		return nil, errors.New("无权操作此订单")
+		return nil, bizerr.Forbidden("无权操作此订单")
 	}
 	if order.Status != model.OrderStatusPaid && order.Status != model.OrderStatusCompleted {
-		return nil, errors.New("仅已支付或已完成订单可申请退款")
+		return nil, bizerr.BadRequest("仅已支付或已完成订单可申请退款")
 	}
 	if req.Amount > order.TotalAmount {
-		return nil, errors.New("退款金额不能超过订单金额")
+		return nil, bizerr.BadRequest("退款金额不能超过订单金额")
 	}
 
 	refundNo := generateRefundNo(userID)
@@ -52,9 +52,8 @@ func (s *refundService) CreateRefund(userID uint, req *model.CreateRefundRequest
 		Status:   model.RefundStatusPending,
 	}
 
-	err = s.refundRepo.Create(refund)
-	if err != nil {
-		return nil, errors.New("申请退款失败")
+	if err := s.refundRepo.Create(refund); err != nil {
+		return nil, bizerr.WrapInternal(err, "申请退款失败")
 	}
 
 	return refund, nil
@@ -63,10 +62,10 @@ func (s *refundService) CreateRefund(userID uint, req *model.CreateRefundRequest
 func (s *refundService) GetRefundByID(userID, refundID uint) (*model.Refund, error) {
 	refund, err := s.refundRepo.GetByID(refundID)
 	if err != nil {
-		return nil, errors.New("退款记录不存在")
+		return nil, bizerr.NotFound("退款记录不存在")
 	}
 	if refund.UserID != userID {
-		return nil, errors.New("无权查看此退款记录")
+		return nil, bizerr.Forbidden("无权查看此退款记录")
 	}
 	return refund, nil
 }
@@ -81,7 +80,7 @@ func (s *refundService) GetRefundList(userID uint, query *model.RefundListQuery)
 
 	refunds, total, err := s.refundRepo.GetByUserID(userID, query)
 	if err != nil {
-		return nil, errors.New("获取退款列表失败")
+		return nil, bizerr.WrapInternal(err, "获取退款列表失败")
 	}
 
 	return &model.RefundListResponse{

@@ -5,7 +5,6 @@ import (
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/service"
 	"ecommerce-backend/pkg/response"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +34,7 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 
 	order, err := h.orderService.CreateOrder(userID, &req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -49,16 +48,15 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	orderID, err := strconv.ParseUint(idStr, 10, 32)
+	orderID, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "订单ID格式错误")
 		return
 	}
 
-	order, err := h.orderService.GetOrderByID(userID, uint(orderID))
+	order, err := h.orderService.GetOrderByID(userID, orderID)
 	if err != nil {
-		response.NotFound(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -80,7 +78,7 @@ func (h *OrderHandler) GetOrderList(c *gin.Context) {
 
 	result, err := h.orderService.GetOrderList(userID, &query)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -94,16 +92,14 @@ func (h *OrderHandler) CancelOrder(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	orderID, err := strconv.ParseUint(idStr, 10, 32)
+	orderID, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "订单ID格式错误")
 		return
 	}
 
-	err = h.orderService.CancelOrder(userID, uint(orderID))
-	if err != nil {
-		response.Error(c, err.Error())
+	if err := h.orderService.CancelOrder(userID, orderID); err != nil {
+		response.Fail(c, err)
 		return
 	}
 

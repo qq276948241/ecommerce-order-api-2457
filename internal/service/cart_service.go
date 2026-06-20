@@ -1,10 +1,9 @@
 package service
 
 import (
-	"errors"
-
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/repository"
+	bizerr "ecommerce-backend/pkg/errors"
 )
 
 type CartService interface {
@@ -29,22 +28,25 @@ func NewCartService(cartRepo repository.CartRepository, productRepo repository.P
 func (s *cartService) AddItem(userID uint, req *model.AddCartRequest) error {
 	product, err := s.productRepo.GetByID(req.ProductID)
 	if err != nil {
-		return errors.New("商品不存在")
+		return bizerr.NotFound("商品不存在")
 	}
 	if product.Status != 1 {
-		return errors.New("商品已下架")
+		return bizerr.BadRequest("商品已下架")
 	}
 	if product.Stock < req.Quantity {
-		return errors.New("商品库存不足")
+		return bizerr.BadRequest("商品库存不足")
 	}
 
 	existingItem, err := s.cartRepo.GetByUserAndProduct(userID, req.ProductID)
 	if err == nil && existingItem != nil {
 		existingItem.Quantity += req.Quantity
 		if product.Stock < existingItem.Quantity {
-			return errors.New("商品库存不足")
+			return bizerr.BadRequest("商品库存不足")
 		}
-		return s.cartRepo.Update(existingItem)
+		if err := s.cartRepo.Update(existingItem); err != nil {
+			return bizerr.WrapInternal(err, "更新购物车失败")
+		}
+		return nil
 	}
 
 	cartItem := &model.CartItem{
@@ -53,13 +55,16 @@ func (s *cartService) AddItem(userID uint, req *model.AddCartRequest) error {
 		Quantity:  req.Quantity,
 	}
 
-	return s.cartRepo.AddItem(cartItem)
+	if err := s.cartRepo.AddItem(cartItem); err != nil {
+		return bizerr.WrapInternal(err, "添加购物车失败")
+	}
+	return nil
 }
 
 func (s *cartService) GetCart(userID uint) (*model.CartListResponse, error) {
 	items, err := s.cartRepo.GetByUserID(userID)
 	if err != nil {
-		return nil, errors.New("获取购物车失败")
+		return nil, bizerr.WrapInternal(err, "获取购物车失败")
 	}
 
 	var total float64
@@ -77,32 +82,38 @@ func (s *cartService) GetCart(userID uint) (*model.CartListResponse, error) {
 func (s *cartService) UpdateItem(userID, itemID uint, quantity int) error {
 	item, err := s.cartRepo.GetByID(itemID)
 	if err != nil {
-		return errors.New("购物车项不存在")
+		return bizerr.NotFound("购物车项不存在")
 	}
 	if item.UserID != userID {
-		return errors.New("无权操作此购物车项")
+		return bizerr.Forbidden("无权操作此购物车项")
 	}
 
 	product, err := s.productRepo.GetByID(item.ProductID)
 	if err != nil {
-		return errors.New("商品不存在")
+		return bizerr.NotFound("商品不存在")
 	}
 	if product.Stock < quantity {
-		return errors.New("商品库存不足")
+		return bizerr.BadRequest("商品库存不足")
 	}
 
 	item.Quantity = quantity
-	return s.cartRepo.Update(item)
+	if err := s.cartRepo.Update(item); err != nil {
+		return bizerr.WrapInternal(err, "更新购物车失败")
+	}
+	return nil
 }
 
 func (s *cartService) DeleteItem(userID, itemID uint) error {
 	item, err := s.cartRepo.GetByID(itemID)
 	if err != nil {
-		return errors.New("购物车项不存在")
+		return bizerr.NotFound("购物车项不存在")
 	}
 	if item.UserID != userID {
-		return errors.New("无权操作此购物车项")
+		return bizerr.Forbidden("无权操作此购物车项")
 	}
 
-	return s.cartRepo.Delete(itemID)
+	if err := s.cartRepo.Delete(itemID); err != nil {
+		return bizerr.WrapInternal(err, "删除购物车项失败")
+	}
+	return nil
 }

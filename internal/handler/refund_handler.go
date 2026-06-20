@@ -5,7 +5,6 @@ import (
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/service"
 	"ecommerce-backend/pkg/response"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +34,7 @@ func (h *RefundHandler) CreateRefund(c *gin.Context) {
 
 	refund, err := h.refundService.CreateRefund(userID, &req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -49,16 +48,15 @@ func (h *RefundHandler) GetRefund(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	refundID, err := strconv.ParseUint(idStr, 10, 32)
+	refundID, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "退款记录ID格式错误")
 		return
 	}
 
-	refund, err := h.refundService.GetRefundByID(userID, uint(refundID))
+	refund, err := h.refundService.GetRefundByID(userID, refundID)
 	if err != nil {
-		response.NotFound(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -80,7 +78,7 @@ func (h *RefundHandler) GetRefundList(c *gin.Context) {
 
 	result, err := h.refundService.GetRefundList(userID, &query)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 

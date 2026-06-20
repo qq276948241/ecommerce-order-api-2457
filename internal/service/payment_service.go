@@ -1,12 +1,12 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/repository"
+	bizerr "ecommerce-backend/pkg/errors"
 
 	"gorm.io/gorm"
 )
@@ -34,18 +34,18 @@ func NewPaymentService(paymentRepo repository.PaymentRepository, orderRepo repos
 func (s *paymentService) Pay(userID uint, req *model.PayRequest) (*model.PayResponse, error) {
 	order, err := s.orderRepo.GetByID(req.OrderID)
 	if err != nil {
-		return nil, errors.New("订单不存在")
+		return nil, bizerr.NotFound("订单不存在")
 	}
 	if order.UserID != userID {
-		return nil, errors.New("无权支付此订单")
+		return nil, bizerr.Forbidden("无权支付此订单")
 	}
 	if order.Status != model.OrderStatusPending {
-		return nil, errors.New("订单状态不允许支付")
+		return nil, bizerr.BadRequest("订单状态不允许支付")
 	}
 
 	existingPayment, _ := s.paymentRepo.GetByOrderID(req.OrderID)
 	if existingPayment != nil && existingPayment.Status == model.PaymentStatusSuccess {
-		return nil, errors.New("订单已支付")
+		return nil, bizerr.BadRequest("订单已支付")
 	}
 
 	paymentNo := generatePaymentNo(userID)
@@ -66,11 +66,10 @@ func (s *paymentService) Pay(userID uint, req *model.PayRequest) (*model.PayResp
 		err = s.paymentRepo.Create(payment)
 	}
 	if err != nil {
-		return nil, errors.New("创建支付记录失败")
+		return nil, bizerr.WrapInternal(err, "创建支付记录失败")
 	}
 
-	err = s.mockPayment(payment)
-	if err != nil {
+	if err := s.mockPayment(payment); err != nil {
 		return nil, err
 	}
 
@@ -85,7 +84,7 @@ func (s *paymentService) Pay(userID uint, req *model.PayRequest) (*model.PayResp
 func (s *paymentService) mockPayment(payment *model.Payment) error {
 	now := time.Now()
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		payment.Status = model.PaymentStatusSuccess
 		payment.TransactionID = fmt.Sprintf("MOCK%d", now.Unix())
 		payment.PaidAt = &now
@@ -105,15 +104,20 @@ func (s *paymentService) mockPayment(payment *model.Payment) error {
 
 		return nil
 	})
+
+	if err != nil {
+		return bizerr.WrapInternal(err, "支付处理失败")
+	}
+	return nil
 }
 
 func (s *paymentService) GetPaymentByID(userID, paymentID uint) (*model.Payment, error) {
 	payment, err := s.paymentRepo.GetByID(paymentID)
 	if err != nil {
-		return nil, errors.New("支付记录不存在")
+		return nil, bizerr.NotFound("支付记录不存在")
 	}
 	if payment.UserID != userID {
-		return nil, errors.New("无权查看此支付记录")
+		return nil, bizerr.Forbidden("无权查看此支付记录")
 	}
 	return payment, nil
 }
@@ -121,15 +125,15 @@ func (s *paymentService) GetPaymentByID(userID, paymentID uint) (*model.Payment,
 func (s *paymentService) GetPaymentByOrderID(userID, orderID uint) (*model.Payment, error) {
 	order, err := s.orderRepo.GetByID(orderID)
 	if err != nil {
-		return nil, errors.New("订单不存在")
+		return nil, bizerr.NotFound("订单不存在")
 	}
 	if order.UserID != userID {
-		return nil, errors.New("无权查看此订单的支付记录")
+		return nil, bizerr.Forbidden("无权查看此订单的支付记录")
 	}
 
 	payment, err := s.paymentRepo.GetByOrderID(orderID)
 	if err != nil {
-		return nil, errors.New("支付记录不存在")
+		return nil, bizerr.NotFound("支付记录不存在")
 	}
 	return payment, nil
 }

@@ -28,7 +28,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 
 	product, err := h.productService.Create(&req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -36,16 +36,15 @@ func (h *ProductHandler) Create(c *gin.Context) {
 }
 
 func (h *ProductHandler) GetByID(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "商品ID格式错误")
 		return
 	}
 
-	product, err := h.productService.GetByID(uint(id))
+	product, err := h.productService.GetByID(id)
 	if err != nil {
-		response.NotFound(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -53,8 +52,7 @@ func (h *ProductHandler) GetByID(c *gin.Context) {
 }
 
 func (h *ProductHandler) Update(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "商品ID格式错误")
 		return
@@ -66,9 +64,9 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		return
 	}
 
-	product, err := h.productService.Update(uint(id), &req)
+	product, err := h.productService.Update(id, &req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -76,16 +74,14 @@ func (h *ProductHandler) Update(c *gin.Context) {
 }
 
 func (h *ProductHandler) Delete(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 32)
+	id, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "商品ID格式错误")
 		return
 	}
 
-	err = h.productService.Delete(uint(id))
-	if err != nil {
-		response.Error(c, err.Error())
+	if err := h.productService.Delete(id); err != nil {
+		response.Fail(c, err)
 		return
 	}
 
@@ -101,9 +97,17 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	result, err := h.productService.List(&query)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
 	response.Success(c, result)
+}
+
+func parseUintParam(c *gin.Context, name string) (uint, error) {
+	v, err := strconv.ParseUint(c.Param(name), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(v), nil
 }

@@ -5,7 +5,6 @@ import (
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/service"
 	"ecommerce-backend/pkg/response"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -35,7 +34,7 @@ func (h *PaymentHandler) Pay(c *gin.Context) {
 
 	result, err := h.paymentService.Pay(userID, &req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -49,16 +48,15 @@ func (h *PaymentHandler) GetPayment(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	paymentID, err := strconv.ParseUint(idStr, 10, 32)
+	paymentID, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "支付记录ID格式错误")
 		return
 	}
 
-	payment, err := h.paymentService.GetPaymentByID(userID, uint(paymentID))
+	payment, err := h.paymentService.GetPaymentByID(userID, paymentID)
 	if err != nil {
-		response.NotFound(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -72,16 +70,15 @@ func (h *PaymentHandler) GetByOrderID(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("order_id")
-	orderID, err := strconv.ParseUint(idStr, 10, 32)
+	orderID, err := parseUintParam(c, "order_id")
 	if err != nil {
 		response.BadRequest(c, "订单ID格式错误")
 		return
 	}
 
-	payment, err := h.paymentService.GetPaymentByOrderID(userID, uint(orderID))
+	payment, err := h.paymentService.GetPaymentByOrderID(userID, orderID)
 	if err != nil {
-		response.NotFound(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 

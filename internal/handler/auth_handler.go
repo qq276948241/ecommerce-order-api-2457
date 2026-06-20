@@ -28,7 +28,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, err := h.authService.Register(&req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -44,7 +44,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	resp, err := h.authService.Login(&req)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -60,7 +60,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 
 	user, err := h.authService.GetUserByID(userID)
 	if err != nil {
-		response.NotFound(c, "用户不存在")
+		response.Fail(c, err)
 		return
 	}
 

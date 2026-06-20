@@ -1,6 +1,7 @@
 package response
 
 import (
+	"ecommerce-backend/pkg/errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,21 @@ func Success(c *gin.Context, data interface{}) {
 	})
 }
 
+func Fail(c *gin.Context, err error) {
+	if be, ok := errors.IsBizError(err); ok {
+		c.JSON(be.HTTPCode, Response{
+			Code:    be.Code,
+			Message: be.Message,
+		})
+		return
+	}
+
+	c.JSON(http.StatusInternalServerError, Response{
+		Code:    errors.CodeInternal,
+		Message: "服务器内部错误",
+	})
+}
+
 func Error(c *gin.Context, message string) {
 	c.JSON(http.StatusOK, Response{
 		Code:    CodeError,
@@ -40,21 +56,21 @@ func ErrorWithCode(c *gin.Context, httpStatus int, code int, message string) {
 }
 
 func BadRequest(c *gin.Context, message string) {
-	ErrorWithCode(c, http.StatusBadRequest, CodeError, message)
+	Fail(c, errors.BadRequest(message))
 }
 
 func Unauthorized(c *gin.Context, message string) {
-	ErrorWithCode(c, http.StatusUnauthorized, CodeError, message)
+	Fail(c, errors.Unauthorized(message))
 }
 
 func Forbidden(c *gin.Context, message string) {
-	ErrorWithCode(c, http.StatusForbidden, CodeError, message)
+	Fail(c, errors.Forbidden(message))
 }
 
 func NotFound(c *gin.Context, message string) {
-	ErrorWithCode(c, http.StatusNotFound, CodeError, message)
+	Fail(c, errors.NotFound(message))
 }
 
 func InternalError(c *gin.Context, message string) {
-	ErrorWithCode(c, http.StatusInternalServerError, CodeError, message)
+	Fail(c, errors.Internal(message))
 }

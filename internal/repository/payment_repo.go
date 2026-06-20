@@ -2,6 +2,7 @@ package repository
 
 import (
 	"ecommerce-backend/internal/model"
+	"ecommerce-backend/pkg/dbutil"
 
 	"gorm.io/gorm"
 )
@@ -23,36 +24,21 @@ func NewPaymentRepository(db *gorm.DB) PaymentRepository {
 }
 
 func (r *paymentRepository) Create(payment *model.Payment) error {
-	return r.db.Create(payment).Error
+	return dbutil.Create(r.db, payment)
 }
 
 func (r *paymentRepository) GetByID(id uint) (*model.Payment, error) {
-	var payment model.Payment
-	err := r.db.First(&payment, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &payment, nil
+	return dbutil.GetByID[model.Payment](r.db, id)
 }
 
 func (r *paymentRepository) GetByOrderID(orderID uint) (*model.Payment, error) {
-	var payment model.Payment
-	err := r.db.Where("order_id = ?", orderID).First(&payment).Error
-	if err != nil {
-		return nil, err
-	}
-	return &payment, nil
+	return dbutil.GetOne[model.Payment](r.db, []dbutil.Condition{dbutil.Eq("order_id", orderID)})
 }
 
 func (r *paymentRepository) GetByPaymentNo(paymentNo string) (*model.Payment, error) {
-	var payment model.Payment
-	err := r.db.Where("payment_no = ?", paymentNo).First(&payment).Error
-	if err != nil {
-		return nil, err
-	}
-	return &payment, nil
+	return dbutil.GetOne[model.Payment](r.db, []dbutil.Condition{dbutil.Eq("payment_no", paymentNo)})
 }
 
 func (r *paymentRepository) Update(payment *model.Payment) error {
-	return r.db.Save(payment).Error
+	return dbutil.Update(r.db, payment)
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"ecommerce-backend/internal/model"
+	"ecommerce-backend/pkg/dbutil"
 
 	"gorm.io/gorm"
 )
@@ -24,7 +25,7 @@ func NewOrderRepository(db *gorm.DB) OrderRepository {
 
 func (r *orderRepository) Create(order *model.Order, items []model.OrderItem) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(order).Error; err != nil {
+		if err := dbutil.Create(tx, order); err != nil {
 			return err
 		}
 		for i := range items {
@@ -40,44 +41,30 @@ func (r *orderRepository) Create(order *model.Order, items []model.OrderItem) er
 }
 
 func (r *orderRepository) GetByID(id uint) (*model.Order, error) {
-	var order model.Order
-	err := r.db.Preload("Items").First(&order, id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &order, nil
+	return dbutil.GetByID[model.Order](r.db, id, "Items")
 }
 
 func (r *orderRepository) GetByOrderNo(orderNo string) (*model.Order, error) {
-	var order model.Order
-	err := r.db.Preload("Items").Where("order_no = ?", orderNo).First(&order).Error
-	if err != nil {
-		return nil, err
-	}
-	return &order, nil
+	return dbutil.GetOne[model.Order](r.db,
+		[]dbutil.Condition{dbutil.Eq("order_no", orderNo)})
 }
 
 func (r *orderRepository) GetByUserID(userID uint, query *model.OrderListQuery) ([]model.Order, int64, error) {
-	var orders []model.Order
-	var total int64
-
-	db := r.db.Model(&model.Order{}).Where("user_id = ?", userID)
+	var conds []dbutil.Condition
+	conds = append(conds, dbutil.Eq("user_id", userID))
 
 	if query.Status != nil {
-		db = db.Where("status = ?", *query.Status)
+		conds = append(conds, dbutil.Eq("status", *query.Status))
 	}
 
-	db.Count(&total)
-
-	offset := (query.Page - 1) * query.PageSize
-	err := db.Preload("Items").Offset(offset).Limit(query.PageSize).Order("id DESC").Find(&orders).Error
+	pq := dbutil.PageQuery{Page: query.Page, PageSize: query.PageSize}
+	result, err := dbutil.Paginate[model.Order](r.db, pq, conds, []string{"id DESC"}, "Items")
 	if err != nil {
 		return nil, 0, err
 	}
-
-	return orders, total, nil
+	return result.List, result.Total, nil
 }
 
 func (r *orderRepository) Update(order *model.Order) error {
-	return r.db.Save(order).Error
+	return dbutil.Update(r.db, order)
 }

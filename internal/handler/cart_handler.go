@@ -5,7 +5,6 @@ import (
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/service"
 	"ecommerce-backend/pkg/response"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,9 +32,8 @@ func (h *CartHandler) AddItem(c *gin.Context) {
 		return
 	}
 
-	err := h.cartService.AddItem(userID, &req)
-	if err != nil {
-		response.Error(c, err.Error())
+	if err := h.cartService.AddItem(userID, &req); err != nil {
+		response.Fail(c, err)
 		return
 	}
 
@@ -51,7 +49,7 @@ func (h *CartHandler) GetCart(c *gin.Context) {
 
 	result, err := h.cartService.GetCart(userID)
 	if err != nil {
-		response.Error(c, err.Error())
+		response.Fail(c, err)
 		return
 	}
 
@@ -65,8 +63,7 @@ func (h *CartHandler) UpdateItem(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	itemID, err := strconv.ParseUint(idStr, 10, 32)
+	itemID, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "购物车项ID格式错误")
 		return
@@ -78,9 +75,8 @@ func (h *CartHandler) UpdateItem(c *gin.Context) {
 		return
 	}
 
-	err = h.cartService.UpdateItem(userID, uint(itemID), req.Quantity)
-	if err != nil {
-		response.Error(c, err.Error())
+	if err := h.cartService.UpdateItem(userID, itemID, req.Quantity); err != nil {
+		response.Fail(c, err)
 		return
 	}
 
@@ -94,16 +90,14 @@ func (h *CartHandler) DeleteItem(c *gin.Context) {
 		return
 	}
 
-	idStr := c.Param("id")
-	itemID, err := strconv.ParseUint(idStr, 10, 32)
+	itemID, err := parseUintParam(c, "id")
 	if err != nil {
 		response.BadRequest(c, "购物车项ID格式错误")
 		return
 	}
 
-	err = h.cartService.DeleteItem(userID, uint(itemID))
-	if err != nil {
-		response.Error(c, err.Error())
+	if err := h.cartService.DeleteItem(userID, itemID); err != nil {
+		response.Fail(c, err)
 		return
 	}
 

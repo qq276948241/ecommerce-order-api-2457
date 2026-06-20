@@ -1,10 +1,9 @@
 package service
 
 import (
-	"errors"
-
 	"ecommerce-backend/internal/model"
 	"ecommerce-backend/internal/repository"
+	bizerr "ecommerce-backend/pkg/errors"
 )
 
 type ProductService interface {
@@ -52,9 +51,8 @@ func (s *productService) Create(req *model.CreateProductRequest) (*model.Product
 		Status:                1,
 	}
 
-	err := s.productRepo.Create(product)
-	if err != nil {
-		return nil, errors.New("创建商品失败")
+	if err := s.productRepo.Create(product); err != nil {
+		return nil, bizerr.WrapInternal(err, "创建商品失败")
 	}
 
 	markLowStock(product)
@@ -64,7 +62,7 @@ func (s *productService) Create(req *model.CreateProductRequest) (*model.Product
 func (s *productService) GetByID(id uint) (*model.Product, error) {
 	product, err := s.productRepo.GetByID(id)
 	if err != nil {
-		return nil, errors.New("商品不存在")
+		return nil, bizerr.NotFound("商品不存在")
 	}
 	markLowStock(product)
 	return product, nil
@@ -73,7 +71,7 @@ func (s *productService) GetByID(id uint) (*model.Product, error) {
 func (s *productService) Update(id uint, req *model.UpdateProductRequest) (*model.Product, error) {
 	product, err := s.productRepo.GetByID(id)
 	if err != nil {
-		return nil, errors.New("商品不存在")
+		return nil, bizerr.NotFound("商品不存在")
 	}
 
 	if req.Name != "" {
@@ -101,9 +99,8 @@ func (s *productService) Update(id uint, req *model.UpdateProductRequest) (*mode
 		product.Status = *req.Status
 	}
 
-	err = s.productRepo.Update(product)
-	if err != nil {
-		return nil, errors.New("更新商品失败")
+	if err := s.productRepo.Update(product); err != nil {
+		return nil, bizerr.WrapInternal(err, "更新商品失败")
 	}
 
 	markLowStock(product)
@@ -113,10 +110,13 @@ func (s *productService) Update(id uint, req *model.UpdateProductRequest) (*mode
 func (s *productService) Delete(id uint) error {
 	_, err := s.productRepo.GetByID(id)
 	if err != nil {
-		return errors.New("商品不存在")
+		return bizerr.NotFound("商品不存在")
 	}
 
-	return s.productRepo.Delete(id)
+	if err := s.productRepo.Delete(id); err != nil {
+		return bizerr.WrapInternal(err, "删除商品失败")
+	}
+	return nil
 }
 
 func (s *productService) List(query *model.ProductListQuery) (*model.ProductListResponse, error) {
@@ -129,7 +129,7 @@ func (s *productService) List(query *model.ProductListQuery) (*model.ProductList
 
 	products, total, err := s.productRepo.List(query)
 	if err != nil {
-		return nil, errors.New("获取商品列表失败")
+		return nil, bizerr.WrapInternal(err, "获取商品列表失败")
 	}
 
 	markLowStockList(products)
