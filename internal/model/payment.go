@@ -11,7 +11,7 @@ const (
 type Payment struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
 	PaymentNo     string    `json:"payment_no" gorm:"type:varchar(32);uniqueIndex;not null"`
-	OrderID       uint      `json:"order_id" gorm:"not null;index"`
+	OrderID       uint      `json:"order_id" gorm:"not null;uniqueIndex"`
 	UserID        uint      `json:"user_id" gorm:"not null;index"`
 	Amount        float64   `json:"amount" gorm:"type:decimal(10,2);not null"`
 	PaymentMethod string    `json:"payment_method" gorm:"type:varchar(50)"`

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	bizerr "ecommerce-backend/pkg/errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type PaymentService interface {
@@ -32,82 +34,105 @@ func NewPaymentService(paymentRepo repository.PaymentRepository, orderRepo repos
 }
 
 func (s *paymentService) Pay(userID uint, req *model.PayRequest) (*model.PayResponse, error) {
-	order, err := s.orderRepo.GetByID(req.OrderID)
-	if err != nil {
-		return nil, bizerr.NotFound("订单不存在")
-	}
-	if order.UserID != userID {
-		return nil, bizerr.Forbidden("无权支付此订单")
-	}
-	if order.Status != model.OrderStatusPending {
-		return nil, bizerr.BadRequest("订单状态不允许支付")
-	}
-
-	existingPayment, _ := s.paymentRepo.GetByOrderID(req.OrderID)
-	if existingPayment != nil && existingPayment.Status == model.PaymentStatusSuccess {
-		return nil, bizerr.BadRequest("订单已支付")
-	}
-
-	paymentNo := generatePaymentNo(userID)
-	payment := &model.Payment{
-		PaymentNo:     paymentNo,
-		OrderID:       req.OrderID,
-		UserID:        userID,
-		Amount:        order.TotalAmount,
-		PaymentMethod: req.PaymentMethod,
-		Status:        model.PaymentStatusPending,
-	}
-
-	if existingPayment != nil {
-		payment.ID = existingPayment.ID
-		payment.PaymentNo = existingPayment.PaymentNo
-		err = s.paymentRepo.Update(payment)
-	} else {
-		err = s.paymentRepo.Create(payment)
-	}
-	if err != nil {
-		return nil, bizerr.WrapInternal(err, "创建支付记录失败")
-	}
-
-	if err := s.mockPayment(payment); err != nil {
-		return nil, err
-	}
-
-	return &model.PayResponse{
-		PaymentID: payment.ID,
-		PaymentNo: payment.PaymentNo,
-		Amount:    payment.Amount,
-		PayStatus: payment.Status,
-	}, nil
-}
-
-func (s *paymentService) mockPayment(payment *model.Payment) error {
-	now := time.Now()
+	var resp *model.PayResponse
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		payment.Status = model.PaymentStatusSuccess
-		payment.TransactionID = fmt.Sprintf("MOCK%d", now.Unix())
-		payment.PaidAt = &now
-		if err := tx.Save(payment).Error; err != nil {
+		var order model.Order
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&order, req.OrderID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return bizerr.NotFound("订单不存在")
+			}
+			return err
+		}
+		if order.UserID != userID {
+			return bizerr.Forbidden("无权支付此订单")
+		}
+		if order.Status != model.OrderStatusPending {
+			return bizerr.BadRequest("订单状态不允许支付")
+		}
+
+		var existingPayment model.Payment
+		paymentFindErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("order_id = ?", req.OrderID).
+			First(&existingPayment).Error
+		if paymentFindErr != nil && !errors.Is(paymentFindErr, gorm.ErrRecordNotFound) {
+			return paymentFindErr
+		}
+
+		if paymentFindErr == nil && existingPayment.Status == model.PaymentStatusSuccess {
+			return bizerr.BadRequest("订单已支付")
+		}
+
+		paymentNo := generatePaymentNo(userID)
+		payment := &model.Payment{
+			PaymentNo:     paymentNo,
+			OrderID:       req.OrderID,
+			UserID:        userID,
+			Amount:        order.TotalAmount,
+			PaymentMethod: req.PaymentMethod,
+			Status:        model.PaymentStatusPending,
+		}
+
+		if paymentFindErr == nil {
+			payment.ID = existingPayment.ID
+			payment.PaymentNo = existingPayment.PaymentNo
+			payment.Status = model.PaymentStatusPending
+			if err := tx.Save(payment).Error; err != nil {
+				return err
+			}
+		} else {
+			if err := tx.Create(payment).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := s.mockPaymentInTx(tx, payment, &order); err != nil {
 			return err
 		}
 
-		order, err := s.orderRepo.GetByID(payment.OrderID)
-		if err != nil {
-			return err
+		resp = &model.PayResponse{
+			PaymentID: payment.ID,
+			PaymentNo: payment.PaymentNo,
+			Amount:    payment.Amount,
+			PayStatus: payment.Status,
 		}
-		order.Status = model.OrderStatusPaid
-		order.PayTime = &now
-		if err := tx.Save(order).Error; err != nil {
-			return err
-		}
-
 		return nil
 	})
 
 	if err != nil {
-		return bizerr.WrapInternal(err, "支付处理失败")
+		if _, ok := bizerr.IsBizError(err); ok {
+			return nil, err
+		}
+		return nil, bizerr.WrapInternal(err, "支付处理失败")
 	}
+
+	return resp, nil
+}
+
+func (s *paymentService) mockPaymentInTx(tx *gorm.DB, payment *model.Payment, order *model.Order) error {
+	now := time.Now()
+
+	payment.Status = model.PaymentStatusSuccess
+	payment.TransactionID = fmt.Sprintf("MOCK%d", now.Unix())
+	payment.PaidAt = &now
+	if err := tx.Save(payment).Error; err != nil {
+		return err
+	}
+
+	result := tx.Model(&model.Order{}).
+		Where("id = ? AND status = ?", order.ID, model.OrderStatusPending).
+		Updates(map[string]interface{}{
+			"status":   model.OrderStatusPaid,
+			"pay_time": now,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return bizerr.BadRequest("订单状态已变更，支付失败")
+	}
+
 	return nil
 }
 

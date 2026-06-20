@@ -12,7 +12,7 @@ const (
 type Refund struct {
 	ID            uint      `json:"id" gorm:"primaryKey"`
 	RefundNo      string    `json:"refund_no" gorm:"type:varchar(32);uniqueIndex;not null"`
-	OrderID       uint      `json:"order_id" gorm:"not null;index"`
+	OrderID       uint      `json:"order_id" gorm:"not null;uniqueIndex"`
 	UserID        uint      `json:"user_id" gorm:"not null;index"`
 	Amount        float64   `json:"amount" gorm:"type:decimal(10,2);not null"`
 	Reason        string    `json:"reason" gorm:"type:varchar(500);not null"`

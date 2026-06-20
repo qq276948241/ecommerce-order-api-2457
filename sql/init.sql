@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS payments (
     paid_at DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_order_id (order_id),
+    UNIQUE KEY uk_order_id (order_id),
     INDEX idx_user_id (user_id),
     INDEX idx_payment_no (payment_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS refunds (
     refunded_at DATETIME DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_order_id (order_id),
+    UNIQUE KEY uk_order_id (order_id),
     INDEX idx_user_id (user_id),
     INDEX idx_refund_no (refund_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

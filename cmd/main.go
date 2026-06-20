@@ -35,7 +35,7 @@ func main() {
 	cartService := service.NewCartService(cartRepo, productRepo)
 	orderService := service.NewOrderService(orderRepo, cartRepo, productRepo, db)
 	paymentService := service.NewPaymentService(paymentRepo, orderRepo, db)
-	refundService := service.NewRefundService(refundRepo, orderRepo)
+	refundService := service.NewRefundService(refundRepo, orderRepo, db)
 
 	authHandler := handler.NewAuthHandler(authService)
 	productHandler := handler.NewProductHandler(productService)
